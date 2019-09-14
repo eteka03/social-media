@@ -80,7 +80,7 @@ exports.getAllScreams =(req,res)=>{
 
  exports.commentOnScream = (req,res)=>{
 
-    if(req.body.body.trim() === '') return res.status(400).json({error: 'Must not be empty'});
+    if(req.body.body.trim() === '') return res.status(400).json({comment: 'Must not be empty'});
 
     const newComment= {
         body: req.body.body,
@@ -95,8 +95,11 @@ exports.getAllScreams =(req,res)=>{
         if(!doc.exists){
             return res.status(404).json({error:'scream not found'});
         }
-        return db.collection('comments').add(newComment);
+        return  doc.ref.update({commentCount: doc.data().commentCount + 1});
 
+    })
+    .then(()=>{
+        return db.collection('comments').add(newComment);
     })
     .then(()=>{
         res.json(newComment);
@@ -155,6 +158,7 @@ exports.getAllScreams =(req,res)=>{
 
 
 
+//unlike a scream
 
 exports.unlikeScream = (req,res)=>{
     const likeDocument = db.collection('likes').where('userHandle','==',req.user.handle)
@@ -179,7 +183,7 @@ exports.unlikeScream = (req,res)=>{
         return res.status(400).json({error:'scream not liked'});
   
 }else{
-   return db.doc(`/likes/${data.docs[0].data().id}`).delete()
+   return db.doc(`/likes/${data.docs[0].id}`).delete()
    .then(()=>{
        screamData.likeCount--;
        return screamDocument.update({likeCount: screamData.likeCount});
@@ -196,4 +200,30 @@ exports.unlikeScream = (req,res)=>{
     res.status.json({error:err.code})
 })
 
+};
+
+
+//delete scream
+
+exports.deleteScream = (req,res)=>{
+    const document = db.doc(`/screams/${req.params.screamId}`);
+
+    document.get()
+    .then(doc=>{
+        if(!doc.exists){
+            return res.status(404).json({error: 'scream not found'});
+        }
+        if(doc.data().userHandle !== req.user.handle){
+            return res.status(403).json({error:'Unauthorized'});
+        }else{
+            return document.delete();
+        }
+    })
+    .then(()=>{
+        res.json({message : 'Scream deleted successfully'});
+    })
+    .catch(err=>{
+        console.error(err);
+        return res.status(500).json({error:err.code})
+    })
 }
